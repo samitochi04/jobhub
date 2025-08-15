@@ -20,9 +20,9 @@ const SearchesPage = () => {
 
   const [formData, setFormData] = useState({
     keywords: '',
-    location: '',
-    frequency: 'daily',
+    job_types: ['alternance'],
     platforms: ['linkedin'],
+    duration_minutes: 15,
     is_active: true
   });
 
@@ -65,9 +65,9 @@ const SearchesPage = () => {
         setEditingSearch(null);
         setFormData({
           keywords: '',
-          location: '',
-          frequency: 'daily',
+          job_types: ['alternance'],
           platforms: ['linkedin'],
+          duration_minutes: 15,
           is_active: true
         });
       }
@@ -80,9 +80,9 @@ const SearchesPage = () => {
     setEditingSearch(search);
     setFormData({
       keywords: search.keywords || '',
-      location: search.location || '',
-      frequency: search.frequency || 'daily',
+      job_types: search.job_types || ['alternance'],
       platforms: search.platforms || ['linkedin'],
+      duration_minutes: search.duration_minutes || 15,
       is_active: search.is_active
     });
     setShowCreateForm(true);
@@ -224,9 +224,9 @@ const SearchesPage = () => {
               setEditingSearch(null);
               setFormData({
                 keywords: '',
-                location: '',
-                frequency: 'daily',
+                job_types: ['alternance'],
                 platforms: ['linkedin'],
+                duration_minutes: 15,
                 is_active: true
               });
             }}
@@ -262,29 +262,48 @@ const SearchesPage = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Localisation
+                    Types d'emploi *
                   </label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({...formData, location: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/5 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
-                    placeholder="Ex: Paris, Lyon, Remote..."
-                  />
+                  <div className="space-y-2">
+                    {['alternance', 'stage', 'cdi', 'cdd', 'freelance'].map((type) => (
+                      <label key={type} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.job_types.includes(type)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                job_types: [...formData.job_types, type]
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                job_types: formData.job_types.filter(t => t !== type)
+                              });
+                            }
+                          }}
+                          className="rounded border-gray-600 text-gold focus:ring-gold"
+                        />
+                        <span className="text-gray-300 capitalize">{type}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Fréquence
+                    Intervalle (minutes)
                   </label>
                   <select
-                    value={formData.frequency}
-                    onChange={(e) => setFormData({...formData, frequency: e.target.value})}
+                    value={formData.duration_minutes}
+                    onChange={(e) => setFormData({...formData, duration_minutes: parseInt(e.target.value)})}
                     className="w-full px-4 py-3 bg-white/5 border border-gray-600 rounded-lg text-white focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
                   >
-                    <option value="daily">Quotidienne</option>
-                    <option value="weekly">Hebdomadaire</option>
-                    <option value="hourly">Toutes les heures</option>
+                    <option value={5}>5 minutes</option>
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={60}>1 heure</option>
                   </select>
                 </div>
 

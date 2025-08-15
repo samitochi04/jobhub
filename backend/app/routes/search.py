@@ -5,9 +5,17 @@ import json
 
 search_bp = Blueprint('search', __name__)
 
+# Référence globale au service de scraping (sera injectée)
+_scraping_service = None
+
+def set_scraping_service(service):
+    """Injection du service de scraping"""
+    global _scraping_service
+    _scraping_service = service
+
 @search_bp.route('/search', methods=['POST'])
 def create_search():
-    """Crée une nouvelle recherche avec cron job"""
+    """Crée une nouvelle recherche avec cron job automatique"""
     try:
         data = request.get_json()
         
@@ -41,12 +49,18 @@ def create_search():
             duration_minutes=duration_minutes
         )
         
-        # TODO: Démarrer le cron job pour cette recherche
-        # Cette partie sera implémentée avec le scheduler
+        # Programmer automatiquement la recherche si le service est disponible
+        scheduled = False
+        if _scraping_service:
+            try:
+                scheduled = _scraping_service.schedule_search(search.id)
+            except Exception as e:
+                print(f"Warning: Failed to schedule search {search.id}: {e}")
         
         return jsonify({
             'message': 'Search created successfully',
-            'search': search.to_dict()
+            'search': search.to_dict(),
+            'scheduled': scheduled
         }), 201
         
     except Exception as e:
@@ -73,7 +87,7 @@ def get_search(search_id):
 
 @search_bp.route('/search/<int:search_id>', methods=['PUT'])
 def update_search(search_id):
-    """Met à jour une recherche existante"""
+    """Met à jour une recherche existante et reprogramme si nécessaire"""
     try:
         search = DatabaseUtils.get_search_by_id(search_id)
         if not search:
@@ -82,6 +96,8 @@ def update_search(search_id):
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
+        
+        was_active = search.is_active
         
         # Mettre à jour les champs modifiables
         if 'keywords' in data:
@@ -104,9 +120,25 @@ def update_search(search_id):
         
         db.session.commit()
         
+        # Reprogrammer si nécessaire
+        rescheduled = False
+        if _scraping_service:
+            try:
+                if was_active and not search.is_active:
+                    # Désactiver le job
+                    _scraping_service.unschedule_search(search_id)
+                    rescheduled = "unscheduled"
+                elif search.is_active:
+                    # Reprogrammer (que ce soit nouveau ou mise à jour)
+                    rescheduled = _scraping_service.schedule_search(search_id)
+                    rescheduled = "rescheduled" if rescheduled else "failed"
+            except Exception as e:
+                print(f"Warning: Failed to reschedule search {search_id}: {e}")
+        
         return jsonify({
             'message': 'Search updated successfully',
-            'search': search.to_dict()
+            'search': search.to_dict(),
+            'rescheduled': rescheduled
         }), 200
         
     except Exception as e:
@@ -121,12 +153,22 @@ def delete_search(search_id):
         if not search:
             return jsonify({'error': 'Search not found'}), 404
         
+        # Arrêter le job programmé
+        unscheduled = False
+        if _scraping_service:
+            try:
+                unscheduled = _scraping_service.unschedule_search(search_id)
+            except Exception as e:
+                print(f"Warning: Failed to unschedule search {search_id}: {e}")
+        
         # Désactiver la recherche au lieu de la supprimer (pour garder l'historique)
         success = DatabaseUtils.deactivate_search(search_id)
         
         if success:
-            # TODO: Arrêter le cron job associé
-            return jsonify({'message': 'Search deactivated successfully'}), 200
+            return jsonify({
+                'message': 'Search deactivated successfully',
+                'unscheduled': unscheduled
+            }), 200
         else:
             return jsonify({'error': 'Failed to deactivate search'}), 500
             
@@ -158,3 +200,13 @@ def list_searches():
 def create_search_plural():
     """Crée une nouvelle recherche avec cron job (route plurielle)"""
     return create_search()
+
+@search_bp.route('/searches/<int:search_id>', methods=['DELETE'])
+def delete_search_plural(search_id):
+    """Supprime une recherche (route plurielle)"""
+    return delete_search(search_id)
+
+@search_bp.route('/searches/<int:search_id>', methods=['PUT'])
+def update_search_plural(search_id):
+    """Met à jour une recherche (route plurielle)"""
+    return update_search(search_id)
