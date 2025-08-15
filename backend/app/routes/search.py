@@ -153,3 +153,8 @@ def list_searches():
         
     except Exception as e:
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@search_bp.route('/searches', methods=['POST'])
+def create_search_plural():
+    """Crée une nouvelle recherche avec cron job (route plurielle)"""
+    return create_search()

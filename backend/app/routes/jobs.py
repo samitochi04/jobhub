@@ -67,6 +67,37 @@ def get_job(job_id):
     except Exception as e:
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
+@jobs_bp.route('/jobs/<int:job_id>', methods=['PUT'])
+def update_job(job_id):
+    """Met à jour une offre d'emploi spécifique"""
+    try:
+        job = Job.query.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Mettre à jour les champs modifiables
+        if 'is_new' in data:
+            job.is_new = data['is_new']
+        
+        if 'status' in data:
+            # Ajouter un champ status si nécessaire
+            job.status = data['status']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Job updated successfully',
+            'job': job.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
 @jobs_bp.route('/jobs/mark-seen', methods=['POST'])
 def mark_jobs_seen():
     """Marque des offres comme vues (is_new = false)"""
